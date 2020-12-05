@@ -1,8 +1,8 @@
 import tkinter as tk
 import threading
 
-from board import ChessEngine
-from player import Player, GuiPlayer
+from engine import Engine
+
 
 WHITE = 0
 BLACK = 1
@@ -21,7 +21,7 @@ BROWN = "#9C4921"
 
 class MainWindow(tk.Tk):
 
-    def __init__(self, engine, player):
+    def __init__(self, engine, player=None):
         tk.Tk.__init__(self)
         self.title('Chess')
         self.configure(background='white')
@@ -36,9 +36,9 @@ class MainWindow(tk.Tk):
         self.info_frame.pack(side='right')
 
         self._engine_thread_flag = threading.Event()
-        self._game_thread = threading.Thread(target=engine.play_game,
-                                             daemon=True)
-        self._game_thread.start()
+        #self._game_thread = threading.Thread(target=engine.play_game,
+        #                                     daemon=True)
+        #self._game_thread.start()
 
     def quit(self):
         self._engine.quit()
@@ -55,20 +55,60 @@ class InfoFrame(tk.Frame):
         turn = tk.Label(self, text='Player turn: ', font=FONT, **LABEL_STYLE)
         w_score = tk.Label(self, text="White score: ", font=FONT, **LABEL_STYLE)
         b_score = tk.Label(self, text="Black score: ", font=FONT, **LABEL_STYLE)
+        check = tk.Label(self, text="Check: ", font=FONT, **LABEL_STYLE)
+        mate = tk.Label(self, text="Check mate: ", font=FONT, **LABEL_STYLE)
 
+        self.turn = tk.Label(self, text="", font=FONT, **LABEL_STYLE)
         self.w_score = tk.Label(self, text="0", font=FONT, **LABEL_STYLE)
         self.b_score = tk.Label(self, text="0", font=FONT, **LABEL_STYLE)
+        self.check = tk.Label(self, text="", font=FONT, **LABEL_STYLE)
+        self.mate = tk.Label(self, text="", font=FONT, **LABEL_STYLE)
 
-        turn.grid(row=0, column=0, columnspan=2)
+        turn.grid(row=0, column=0)
         w_score.grid(row=1, column=0)
         b_score.grid(row=2, column=0)
+        check.grid(row=3, column=0)
+        mate.grid(row=3, column=0)
+
+        self.turn.grid(row=0, column=1)
         self.w_score.grid(row=1, column=1)
         self.b_score.grid(row=2, column=1)
+        self.check.grid(row=3, column=1)
+        self.mate.grid(row=3, column=1)
 
-    def update(self):
-        turn = self._engine.get_player_turn()
-        self.w_score.config(text=self._engine.get_player_score(WHITE))
-        self.b_score.config(text=self._engine.get_player_score(BLACK))
+        automove = tk.Label(self, text='Automove: ', font=FONT, **LABEL_STYLE)
+        self.automove = tk.Label(self, text='', font=FONT, **LABEL_STYLE)
+        self.toggle_auto = tk.Button(self, text='Toggle', command=self._toggle_auto)
+
+        self.toggle_color = tk.Button(self, text='Swap color', command=self._toggle_color)
+
+        automove.grid(row=4, column=0)
+        self.automove.grid(row=4, column=1)
+        self.toggle_auto.grid(row=5, column=0, columnspan=2)
+        self.toggle_color.grid(row=6, column=0, columnspan=2)
+
+        self._automove = True
+
+        self.update_ui()
+
+    def _toggle_auto(self):
+        self._automove = not self._automove
+        self.update_ui()
+
+    def _toggle_color(self):
+        self._engine.swap_color()
+        self.update_ui()
+
+    def update_ui(self):
+        status = self._engine.get_status()
+        # Check mate | Check | White score | Black score | Player turn |
+        turn = 'White' if status[4] == 0 else 'Black'
+        self.turn.config(text=turn)
+        self.w_score.config(text='%.2f' % status[3])
+        self.b_score.config(text='%.2f' % status[2])
+        self.check.config(text=str(status[1]))
+        self.mate.config(text=str(status[0]))
+        self.automove.config(text=str(self._automove))
 
 
 class ChessFrame(tk.Frame):
@@ -106,20 +146,33 @@ class ChessFrame(tk.Frame):
         self._player = player
         self._moves = []
 
+    def _place(self, move_from, move_to):
+        result = self._engine.make_move((move_from, move_to))
+        if result:
+            self._info_frame.update_ui()
+            self._update_ui()
+            if self._info_frame._automove:
+                self._engine.swap_color()
+                self._engine.do_random_move()
+                self._engine.swap_color()
+                self._info_frame.update_ui()
+                self._update_ui()
+
     def select(self, row, col):
         for move in self._moves:
-            self._unmark(move)
+            self._unmark(move.move_to)
 
         if self._mark is not None:
             self._unmark(self._mark)
-            self._player.queue_move(self._mark, (row, col), self._update_ui)
+            #self._player.queue_move(self._mark, (row, col), self._update_ui)
+            self._place(self._mark, (row, col))
             self._mark = None
         else:
             self._mark = (row, col)
             self._setmark(self._mark)
             self._moves = self._engine.get_available_moves(self._mark)
             for move in self._moves:
-                row, col = move
+                row, col = move.move_to
                 self._board[row][col].higlight()
 
     def _update_ui(self):
@@ -169,14 +222,7 @@ class ChessFrame(tk.Frame):
 
 
 if __name__ == "__main__":
-    engine = ChessEngine()
-    player = GuiPlayer(WHITE)
-    opponent = Player(BLACK)
-    engine.set_white(player)
-    engine.set_black(opponent)
-
-    main = MainWindow(engine, player)
+    engine = Engine()
+    main = MainWindow(engine)
     main.geometry('+1800+200')
-
-
     main.mainloop()
