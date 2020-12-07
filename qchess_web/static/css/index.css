@@ -1,0 +1,21 @@
+a {
+    text-decoration: none;
+    color: black;
+    transition: color .3s ease;
+}
+
+a:hover {
+    color: gray;
+}
+
+.navbar {
+    border-bottom: 1px solid gray;
+}
+
+.nav-item {
+    padding: 20px;
+}
+
+.content {
+    margin-top: 120px;
+}
