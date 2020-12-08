@@ -6,13 +6,20 @@
 {% block content %}
     <h1>GAME</h1>
 
+    {% csrf_token %}
+
+
     <canvas id="board"></canvas>
 
-    <button id="new_game">New game</button>
+
+    <input type="hidden" id="player" data-color={{ color }}></input>
+
 
 {% endblock %}
 
-{% csrf_token %}
+
+
+
 
 {% block js %}
     <script src="{% static 'js/game.js' %}" type="text/javascript"></script>
