@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 
@@ -13,7 +14,7 @@ from game.models import ActiveGame
 import sys
 ENGINE_PATH = '/home/victor/coding/projects/qchess/src'
 sys.path.append(ENGINE_PATH)
-from engine_server import TCPServer
+from engine_client import TCPClient
 
 
 @login_required
@@ -26,8 +27,18 @@ def game(request, pid):
         return redirect('/')
 
 
-def moves(request, pid):
-    print(pid)
+@login_required
+def get_moves(request, pid):
+    player = get_player(request)
+    if player_has_game(player, pid):
+        square = request.POST.get('square')
+        client = TCPClient(command=TCPClient.GET_AVAILABLE_MOVES,
+                           payload=square)
+        response = client.send()
+        response = b'' if response is None else response
+
+        return JsonResponse({'moves': response.decode('utf-8')})
+
     return render(request, 'game.html', {'color': "white"})
 
 

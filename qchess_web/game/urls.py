@@ -5,6 +5,6 @@ from . import views
 
 urlpatterns = [
     path('<int:pid>/', views.game, name='game'),
-    path('<int:pid>/moves/', views.moves, name='moves'),
+    path('<int:pid>/get_moves/', views.get_moves, name='get_moves'),
     path('new_game/', views.new_game, name='new_game')
 ]
