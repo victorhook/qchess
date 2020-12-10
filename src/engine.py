@@ -340,7 +340,6 @@ class Engine:
         if type(square) is str:
             square = square.upper()
             square = (ord(square[1]) - 49, ord(square[0]) - 65)
-        print(square)
         return square
 
     def _is_promotion_move(self, move):
@@ -360,8 +359,6 @@ class Engine:
 
         piece_from = self._get(move.move_from)
         piece_to = self._get(move.move_to)
-
-        ##print(f'Causes check? {move.move_from}, {piece_from} -> {move.move_to}, {piece_to}')
 
         self._put(move.move_from, PieceType.EMPTY)      # Clear old
         self._put(move.move_to, piece_from)             # Put piece to new sq
@@ -407,7 +404,6 @@ class Engine:
         else:
             row = move.move_to[0]+1
         self._put(row, col, PieceType.EMPTY)
-        #print('Capture en passant')
 
     def _en_passant_move(self, move):
         dr, dc = self._dr_dc(move.move_from, move.move_to)
@@ -559,7 +555,6 @@ class Engine:
         for row in range(8):
             for col in range(8):
                 square = (row, col)
-                ##print(f'{square} -> {self._type(square)}')
                 if (self._type(square) == PieceType.King
                    and self._color(square) == self._current_color):
                     return square
@@ -603,8 +598,6 @@ class Engine:
                 elif not self._piece_at(move.move_to):
                     return False
 
-        #print('pawn -> 5')
-
         return True
 
     def _valid_knight(self, move, color):
@@ -614,10 +607,7 @@ class Engine:
         dr, dc = self._dr_dc(move.move_from, move.move_to)
         if ((abs(dr) == 2 and abs(dc) == 1) or
            (abs(dr) == 1 and abs(dc) == 2)):
-            #print('ok')
             return True
-
-        #print('2')
 
         return False
 
@@ -710,30 +700,23 @@ class Engine:
     def _in_the_way(self, sq1, sq2):
         dr, dc = self._dr_dc(sq1, sq2)
         r, c = sq1
-        ##print('IN the way 1')
         if dc == 0:
             sign = 1 if dr > 0 else -1
             for i in range(abs(dr)-1):
-                ##print('check -> ', (r+sign + sign*i, c))
                 if self._piece_at(r+sign + sign*i, c):
                     return True
         elif dr == 0:
             sign = 1 if dc > 0 else -1
             for i in range(abs(dc)-1):
-                ##print('check -> ', (r, c+sign + sign*i))
                 if self._piece_at(r, c+sign + sign*i):
                     return True
-        ##print('IN the way 2')
 
         if abs(dr) == abs(dc):
             sign_r = 1 if dr > 0 else -1
             sign_c = 1 if dc > 0 else -1
             for i in range(abs(dr)-1):
-                #print('Check: %s, %s' % (r+sign_r + sign_r*i, c+sign_c + sign_c*i))
                 if self._piece_at(r+sign_r + sign_r*i, c+sign_c + sign_c*i):
                     return True
-
-        ##print('IN the way 3')
 
         return False
 
@@ -757,8 +740,6 @@ class Engine:
 
         to_c, to_r = move.move_to[1], move.move_to[0]
         last_c, last_r = last.move_to[1], last.move_to[0]
-
-        #print(to_c, to_r, last_c, last_r)
 
         if to_c == last_c:
             if color == Color.WHITE:
@@ -827,7 +808,6 @@ class Engine:
             move = random.choice(moves)
             self.make_move(move)
         else:
-            #print('CHECKMATE: %s' % self.is_check_mate())
             pass
 
 
