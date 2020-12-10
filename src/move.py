@@ -11,7 +11,10 @@ class Move:
         self.promotion = promotion
 
     def prettify(self, square):
-        return chr(square[1] + 65) + chr(square[0] + 48)
+        return chr(square[1] + 65) + chr(square[0] + 49)
+
+    def __str__(self):
+        return self.prettify(self.move_from) + self.prettify(self.move_to)
 
     def __repr__(self):
         return '%s -> %s' % (self.prettify(self.move_from),
