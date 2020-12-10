@@ -37,7 +37,32 @@ def get_moves(request, pid):
         response = client.send()
         response = b'' if response is None else response
 
-        return JsonResponse({'moves': response.decode('utf-8')})
+        return JsonResponse({'moves': response})
+
+    return render(request, 'game.html', {'color': "white"})
+
+
+@login_required
+def get_board(request, pid):
+    player = get_player(request)
+    if player_has_game(player, pid):
+        client = TCPClient(command=TCPClient.GET_BOARD)
+        response = client.send()
+        return JsonResponse({'board': response})
+
+
+@login_required
+def make_move(request, pid):
+    player = get_player(request)
+    if player_has_game(player, pid):
+        move_from = request.POST.get('moveFrom')
+        move_to = request.POST.get('moveTo')
+        move = '%s %s' % (move_from, move_to)
+        client = TCPClient(command=TCPClient.MAKE_MOVE,
+                           payload=move)
+        response = client.send()
+
+        return JsonResponse({'moves': response})
 
     return render(request, 'game.html', {'color': "white"})
 
