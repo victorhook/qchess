@@ -9,6 +9,23 @@ from piece import Piece, Color, PieceType,  PIECE_SCORE
 from piece import WHITE_PIECES_ASCII_TABLE, BLACK_PIECES_ASCII_TABLE
 
 
+class MoveResult:
+
+    def __init__(self, is_ok=False, capture=False, promotion=False):
+        self.is_ok = is_ok
+        self.capture = capture
+        self.promotion = promotion
+
+    def as_list(self):
+        return list(map(lambda val: 1 if val else 0,
+                        [self.is_ok, self.capture, self.promotion]))
+
+    def __repr__(self):
+        return 'OK: %s, Capture: %s, Promotion: %s' % (
+            self.is_ok, self.capture, self.promotion
+        )
+
+
 class Square:
     def __init__(self, row, col):
         self.row = row
@@ -30,6 +47,8 @@ class Engine:
 
         self._w_ressign = False
         self._b_ressign = False
+
+        self._promotion_sq = None
 
         self.history = History()
 
@@ -82,11 +101,12 @@ class Engine:
         return moves
 
     def get_available_moves(self, move_from):
+        square = self._parse_square(move_from)
         moves = []
         for row in range(8):
             for col in range(8):
                 move_to = (row, col)
-                move = Move(move_from, move_to)
+                move = Move(square, move_to)
                 if self.valid_move(move):
                     moves.append(move)
 
@@ -202,19 +222,42 @@ class Engine:
         return check and self._no_moves_available()
 
     def make_move(self, move):
+        """ Tries to make the given move.
+            move: ((row_from, col_to), (row_to, col_to))
+            returns: A MoveResult, containing information if the move
+            was valid, if it caused a promotion and if it was a capture.
+        """
 
-        if self.is_check_mate() or self.is_draw() or self.is_resigned():
-            return False
+        result = MoveResult(promotion=self.is_promotion())
 
-        move = self._parse_move(move)
-        valid = self.valid_move(move)
-        if valid:
-            self.place(move)
-            if self._cli_display:
-                self._display()
-            return True
+        if (self.is_check_mate() or self.is_draw() or self.is_resigned() or
+           self.is_promotion()):
+            result.is_ok = False
         else:
-            return False
+            move = self._parse_move(move)
+            valid = self.valid_move(move)
+
+            if valid:
+                result.capture = self.place(move)
+                if self._cli_display:
+                    self._display()
+                result.is_ok = True
+            else:
+                result.is_ok = False
+
+        return result
+
+    def is_promotion(self):
+        return self._promotion_sq is not None
+
+    def make_promotion(self, piece_type):
+        if piece_type in [PieceType.Bishop, PieceType.Rock, PieceType.Knight,
+                          PieceType.Queen]:
+            piece = Piece(piece_type, self._current_color)
+            self._put(self._promotion_sq.row, self._promotion_sq.col, piece)
+            self._promotion_sq = None
+            return True
+        return False
 
     def place(self, move):
         from_r, from_c = move.move_from
@@ -225,9 +268,12 @@ class Engine:
 
         if self._en_passant_move(move):
             self._take_en_passant(move)
+            capture = True
+        else:
+            capture = self._is_capture(move)
 
-        elif self._promotion_move(move):
-            self._make_promotion(move)
+        if self._is_promotion_move(move):
+            self._promotion_sq = move.move_to
 
         elif self._castle_move(move):
             #print('castle')
@@ -237,6 +283,7 @@ class Engine:
         self._put(to_r, to_c, piece)
         self._put(from_r, from_c, PieceType.EMPTY)
         self.history.add(move)
+        return capture
 
     def run(self):
         while True:
@@ -289,11 +336,20 @@ class Engine:
                 print(' %s |' % sq, end='')
             print()
 
-    def _promotion_move(self, move):
-        pass
+    def _parse_square(self, square):
+        if type(square) is str:
+            square = square.upper()
+            square = (ord(square[1]) - 49, ord(square[0]) - 65)
+        print(square)
+        return square
 
-    def _make_promotion(self, move):
-        pass
+    def _is_promotion_move(self, move):
+        row = move.move_to[0]
+        return (self._type(move.move_from) == PieceType.Pawn and
+                (row == 0 or row == 7))
+
+    def _is_capture(self, move):
+        return self._piece_at(move.move_to)
 
     def _causes_check(self, move):
         """ Checks if the given move causes check by playing it on the board.
@@ -778,4 +834,4 @@ class Engine:
 if __name__ == "__main__":
 
     engine = Engine()
-    engine.run()
+    #engine.run()
