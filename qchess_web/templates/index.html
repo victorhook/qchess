@@ -1,9 +1,52 @@
 {% extends 'base.html' %}
+{% load static %}
 
 
 {% block content %}
     <h1>FRONT PAGE</h1>
 
-    <a href="{% url 'game' %}">Game</a>
+    <!--
+    {% if user.is_authenticated %}
+        <button type="button" class="btn btn-primary" id="new_game" data-toggle="modal" data-target="#color_modal">
+            New game
+        </button>
+    {% else %}
+        <a href="{% url 'login' %}">Login to play!</a>
+    {% endif %}
+    -->
 
+
+    <!-- Button trigger modal -->
+
+
+    <!-- Modal -->
+
+    <div class="modal fade" id="color_modal" tabindex="-1" role="dialog" aria-labelledby="color_modal_label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="color_modal_label">Choose color</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                        </div>
+                        <div class="modal-body">
+                            <button type="button" class="btn btn-primary" id="btnWhite" data-dismiss="modal">White</button>
+                            <button type="button" class="btn btn-primary" id="btnBlack" data-dismiss="modal">Black</button>
+                            <button type="button" class="btn btn-primary" id="btnRandom" data-dismiss="modal">Random</button>
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" action="{% url 'new_game' %}">
+        {% csrf_token %}
+        <input type="submit" value="NEW GAME"></submit>
+    </form>
+
+
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/index.js' %}" type="text/javascript"></script>
 {% endblock %}
