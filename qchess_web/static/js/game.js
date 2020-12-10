@@ -11,11 +11,13 @@ const COLOR_BLACK = '#CABA86';
 const COLOR_SELECT = 'green';
 const COLOR_HOVER = '#555';
 const COLOR_HIGHLIGHT = "purple";
+const EMPTY = ".";
 
 const BOARD_WIDTH = 400;
 const BOARD_HEIGHT = 400;
 
 const csrftoken = getCookie('csrftoken');
+let board;
 
 $(document).ready(function() {
 
@@ -24,9 +26,11 @@ $(document).ready(function() {
     };
 
     const ctx = getGraphcisContext();
-    let board = new Board(ctx.canvas.width, ctx, player.color);
-    let b = "RNBQKBNRPPPPPPPP................................pppppppprnbqkbnr"
-    board.update(b);
+    board = new Board(ctx.canvas.width, ctx, player.color);
+    //let b = "RNBQKBNRPPPPPPPP................................pppppppprnbqkbnr"
+    //board.update(b);
+
+    sendGetBoard();
 
 });
 
@@ -70,16 +74,32 @@ function createImage(src) {
 }
 
 function sendGetAvailableMoves(square, board) {
-    $.post(location.href + "get_moves/", {
-        csrfmiddlewaretoken: csrftoken,
-        square: square
-    },
-        (data) => {
-            let moves = data.moves.split(' ');
-            let squares = data.moves.length > 0 ? moves.map(indexify) : [];
-            board.higlight(squares);
+    sendToServer("get_moves/", {square: square}, (data) => {
+        let moves = data.moves.split(' ');
+        let squares = data.moves.length > 0 ? moves.map(indexify) : [];
+        board.higlight(squares);
     });
 }
+
+function sendMakeMove(moveFrom, moveTo) {
+    let payload = {moveFrom: moveFrom, moveTo: moveTo};
+    sendToServer("make_move/", payload, (data) => {
+        console.log(data);
+        sendGetBoard();
+    });
+}
+
+function sendGetBoard() {
+    sendToServer("get_board/", {}, (data) => board.update(data.board));
+}
+
+function sendToServer(url, payload, callback) {
+    payload.csrfmiddlewaretoken = csrftoken;
+    $.post(location.href + url,
+           payload,
+           (data) => callback(data));
+}
+
 
 function indexify(square) {
     let row = square.charCodeAt(1) - 49;
@@ -92,30 +112,30 @@ class Board {
         this.size = size;
         this.ctx = ctx;
         this.playerColor = playerColor;
-        this.cellSize = size / 9;
+        this.squareSize = size / 9;
 
         ctx.setStrokeStyle = "black";
         ctx.strokeRect(0, 0, size, size);
 
-        this.cells = [];
+        this.squares = [];
         let x, y;
-        let xStart = this.cellSize;
+        let xStart = this.squareSize;
         let yStart = 0;
 
         let color;
 
         for (var r = 0; r < 8; r++) {
-            this.cells.push([]);
+            this.squares.push([]);
             for (var c = 0; c < 8; c++) {
                 if ((r % 2 == 0 && c % 2 != 0) || (r % 2 != 0 && c % 2 == 0))
                     color = COLOR_WHITE;
                 else
                     color = COLOR_BLACK;
 
-                y = yStart + this.cellSize * r;
-                x = xStart + this.cellSize * c;
-                this.cells[r].push(
-                    new Cell(x, y, r, c, this.cellSize, ctx, color));
+                y = yStart + this.squareSize * r;
+                x = xStart + this.squareSize * c;
+                this.squares[r].push(
+                    new Square(x, y, r, c, this.squareSize, ctx, color));
             }
         }
 
@@ -123,80 +143,129 @@ class Board {
         this.hover = null;
         this.higlighted = [];
 
-        this.ctx.canvas.addEventListener('mousedown', (e) => {
-            let pos = getCursorPosition(this.ctx.canvas, e);
-            for (var r = 0; r < 8; r++) {
-                for (var c = 0; c < 8; c++) {
-
-                    let cell = this.cells[r][c];
-                    if (!this.hitCell(pos, cell))
-                        continue;
-
-                    if (this.selected != null) {
-                        let moveFrom = this.getSquare(this.selected.row,
-                                                      this.selected.col);
-                        let moveTo = this.getSquare(cell.row, cell.col);
-
-                        // * TODO:
-                        // SEND MOVETO
-
-                        this.selected.deselect();
-                        this.clearOldHighlights();
-                        this.selected = null;
-
-                    } else if(cell.hasPiece()) {
-                        sendGetAvailableMoves(this.getSquare(r, c), this);
-                        cell.select();
-                        this.selected = cell;
-                    }
-                }
-            }
-        });
+        this.ctx.canvas.addEventListener('mousedown',
+                                         (e) => this.onMouseClick(e));
+        this.ctx.canvas.onmousemove = (e) => this.onMouseHover(e);
 
 
-
-        this.ctx.canvas.onmousemove = (e) => {
-            let pos = getCursorPosition(this.ctx.canvas, e);
-
-            for (var r = 0; r < 8; r++) {
-                for (var c = 0; c < 8; c++) {
-                    let cell = this.cells[r][c];
-
-                    if (!this.hitCell(pos, cell) || this.isHighlighted(cell) ||
-                        this.isSelected(cell) )
-                        continue;
-
-                    if (this.hover != null && this.hover != this.selected)
-                        this.hover.unHover();
-
-                    cell.hover();
-                    this.hover = cell;
-                    return;
-                }
-            }
-
-            // If mouse is out of any hover-hit, we remove the last-hover square
-            if (this.hover != null && this.hover != this.selected &&
-                !this.isHighlighted(this.hover)) {
-                    this.hover.unHover();
-                    this.hover = null;
-                }
-        };
-
-        this.crateSideBorder();
+        this.createSideBorder();
         this.createBottomBorder();
     }
 
-    isSelected(cell) {
-        return this.selected != null &&
-               this.selected.row == cell.row &&
-               this.selected.col == cell.col;
+    onMouseHover(e) {
+        let pos = getCursorPosition(this.ctx.canvas, e);
+
+        for (var r = 0; r < 8; r++) {
+            for (var c = 0; c < 8; c++) {
+                let cell = this.squares[r][c];
+
+                if (!this.hitSquare(pos, cell) || this.isHighlighted(cell) ||
+                    this.isSelected(cell) )
+                    continue;
+
+                if (this.hover != null && this.hover != this.selected)
+                    this.hover.unHover();
+
+                cell.hover();
+                this.hover = cell;
+                return;
+            }
+        }
+
+        // If mouse is out of any hover-hit, we remove the last-hover square
+        if (this.hover != null && this.hover != this.selected &&
+            !this.isHighlighted(this.hover)) {
+                this.hover.unHover();
+                this.hover = null;
+            }
+        }
+
+    onMouseClick(e) {
+        let pos = getCursorPosition(this.ctx.canvas, e);
+        for (var row = 0; row < 8; row++) {
+            for (var col = 0; col < 8; col++) {
+
+                let square = this.squares[row][col];
+                if (!this.hitSquare(pos, square))
+                    continue;
+
+
+                // 1. Click white piece, no prev sel
+                // 2. Click white piece, prev sel
+                // 2.1 Target is white
+                // 2.2 Target is black
+                // 2.3 Target is empty
+                // 3. Empty square, prev no sel
+
+
+
+
+                if (square.hasPiece()) {
+
+                    if (this.selected != null) {
+                        if (square.pieceColor() != this.playerColor) {
+                            // Capturing piece
+                            let moveFrom = this.getSquare(this.selected.row,
+                                                          this.selected.col);
+                            let moveTo = this.getSquare(square.row, square.col);
+                            sendMakeMove(moveFrom, moveTo);
+                            this.deselect(this.selected);
+                            this.clearOldHighlights();
+                        } else {
+                            this.selected.deselect();
+                            this.select(square);
+                            sendGetAvailableMoves(this.getSquare(row, col), this);
+                        }
+                    } else {
+                        // New click, same color
+                        if (square.pieceColor() == this.playerColor) {
+                            this.select(square);
+                            sendGetAvailableMoves(this.getSquare(row, col), this);
+                        } else {
+                            this.deselect(square);    // New click, enemy color
+                        }
+                    }
+                } else {
+                    if (this.selected != null) {
+                        if (this.moveIsValid({row: row, col: col})) {
+                            let moveFrom = this.getSquare(this.selected.row,
+                                                          this.selected.col);
+                            let moveTo = this.getSquare(square.row, square.col);
+                            sendMakeMove(moveFrom, moveTo);
+                            this.deselect(this.selected);
+                            this.clearOldHighlights();
+                        } else {
+                            this.deselect(this.selected);
+                            this.clearOldHighlights();
+                        }
+                    }
+                }
+
+            }
+        }
     }
 
-    isHighlighted(cell) {
+    select(square) {
+        square.select();
+        this.selected = square;
+    }
+
+    deselect(square) {
+        square.deselect();
+        this.selected = null;
+    }
+
+    isSelected(square) {
+        return this.selected != null &&
+               this.selected.row == square.row &&
+               this.selected.col == square.col;
+    }
+
+    isHighlighted(compareSquare) {
         for (var i = 0; i < this.higlighted.length; i++) {
             let square = this.higlighted[i];
-            if (square.row == cell.row && square.col == cell.col) {
+            if (square.row == compareSquare.row &&
+                square.col == compareSquare.col) {
                 return true;
             }
 
@@ -205,7 +274,7 @@ class Board {
     }
 
     clearOldHighlights() {
-        this.higlighted.forEach(sq => this.cells[sq.row][sq.col].unhighlight());
+        this.higlighted.forEach(sq => this.squares[sq.row][sq.col].unhighlight());
         this.higlighted.size = 0;
     }
 
@@ -213,9 +282,20 @@ class Board {
         this.clearOldHighlights();
         squares.forEach(sq => {
             let row = this.playerColor == "black" ? sq.row : 7-sq.row;
-            this.cells[row][sq.col].highlight();
+            this.squares[row][sq.col].highlight();
             this.higlighted.push({row: row, col:sq.col});
         });
+    }
+
+    // Checks the highlighted square (the OK moves) and returns if target
+    // square is valid.
+    moveIsValid(move_to) {
+        for (let i = 0; i < this.higlighted.length; i++) {
+            let square = this.higlighted[i];
+            if (square.row == move_to.row && square.col == move_to.col)
+                return true;
+        }
+        return false;
     }
 
     getSquare(row, col) {
@@ -226,46 +306,46 @@ class Board {
     }
 
 
-    hitCell(pos, cell) {
+    hitSquare(pos, square) {
         let margin = 2;
-        return ((pos.x > cell.x+margin && pos.x < cell.x2-margin) &&
-                (pos.y > cell.y+margin && pos.y < cell.y2-margin));
+        return ((pos.x > square.x+margin && pos.x < square.x2-margin) &&
+                (pos.y > square.y+margin && pos.y < square.y2-margin));
     }
 
 
-    crateSideBorder() {
+    createSideBorder() {
         let x = 0;
         let y = 0;
-        let cx = x + (this.cellSize / 2);
+        let cx = x + (this.squareSize / 2);
 
         let start = this.playerColor == "black" ? 1 : 8;
         let sign = this.playerColor == "black" ? 1 : -1;
 
         this.ctx.fillStyle = COLOR_BORDER;
         for (var r = 0; r < 8; r++) {
-            let cy = y + (this.cellSize / 2) + this.cellSize * .2;
-            this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
-            this.ctx.fillRect(x, y, this.cellSize, this.cellSize);
+            let cy = y + (this.squareSize / 2) + this.squareSize * .2;
+            this.ctx.strokeRect(x, y, this.squareSize, this.squareSize);
+            this.ctx.fillRect(x, y, this.squareSize, this.squareSize);
 
             this.ctx.strokeText(start, cx, cy);
-            y += this.cellSize;
+            y += this.squareSize;
             start += sign;
         }
     }
 
     createBottomBorder() {
-        let xStart = this.cellSize;
-        let y = this.size - this.cellSize
-        let cy = y + (this.cellSize / 2) + this.cellSize * .2;
+        let xStart = this.squareSize;
+        let y = this.size - this.squareSize
+        let cy = y + (this.squareSize / 2) + this.squareSize * .2;
 
         this.ctx.fillStyle = COLOR_BORDER;
 
         for (var r = 0; r < 8; r++) {
-            let x = xStart + r * this.cellSize;
-            let cx = x + (this.cellSize / 2);
+            let x = xStart + r * this.squareSize;
+            let cx = x + (this.squareSize / 2);
 
-            this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
-            this.ctx.fillRect(x, y, this.cellSize, this.cellSize);
+            this.ctx.strokeRect(x, y, this.squareSize, this.squareSize);
+            this.ctx.fillRect(x, y, this.squareSize, this.squareSize);
             let char = String.fromCharCode(65+r);
             this.ctx.strokeText(char, cx, cy);
         }
@@ -275,7 +355,7 @@ class Board {
     draw() {
         for (var r = 0; r < 8; r++) {
             for (var c = 0; c < 8; c++) {
-                this.cells[r][c].draw();
+                this.squares[r][c].draw();
             }
         }
     }
@@ -287,19 +367,20 @@ class Board {
         for (var r = 0; r < 8; r++) {
             for (var c = 0; c < 8; c++) {
                 row = this.playerColor == "black" ? r : 7-r;
-                this.cells[row][c].update(board[index++]);
+                this.squares[row][c].update(board[index++]);
             }
         }
     }
 }
 
-class Cell {
+class Square {
 
     constructor(x, y, row, col, size, ctx, color) {
         this.x = x;
         this.y = y;
         this.row = row;
         this.col = col;
+        this.piece = null;
         this.x2 = this.x + size;
         this.y2 = this.y + size;
         this.size = size;
@@ -309,15 +390,18 @@ class Cell {
         this.cx = x + (size / 2);
         this.cy = y + (size / 2);
 
-        ctx.strokeStyle = "black";
-        ctx.strokeRect(x, y, x+size, y+size);
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y, x+size, y+size);
+        this.fillCell(color);
+    }
 
+    pieceColor() {
+        if (this.piece != null) {
+            return this.piece < 'a' ? "white" : "black";
+        }
+        return null;
     }
 
     hasPiece() {
-        return this.image != null;
+        return this.piece != null;
     }
 
     draw() {
@@ -326,15 +410,18 @@ class Cell {
     }
 
     update(symbol) {
+        this.piece = symbol;
         let img = IMAGES.get(symbol);
 
-        if (typeof img === 'object') {
+        if (this.piece != EMPTY) {
             this.image = new Image();
             this.image.src = img.src;
             this.image.onload = () => this.ctx.drawImage(this.image, this.x, this.y);
-            this.ctx.strokeText('A', this.cx, this.cy);
-        } else
+        } else {
             this.image = null;
+            this.piece = null;
+        }
+        this.fillCell(this.last_color);
     }
 
     fillCell(color) {
@@ -343,6 +430,7 @@ class Cell {
         this.ctx.fillStyle = color;
         this.ctx.fillRect(this.x, this.y, this.size, this.size);
         this.draw();
+        this.last_color = color;
     }
 
     select() {
