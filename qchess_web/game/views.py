@@ -26,6 +26,12 @@ def game(request, pid):
     else:
         return redirect('/')
 
+@login_required
+def get_status(request, pid):
+    player = get_player(request)
+    if player_has_game(player, pid):
+        pass
+
 
 @login_required
 def get_moves(request, pid):
@@ -62,9 +68,34 @@ def make_move(request, pid):
                            payload=move)
         response = client.send()
 
-        return JsonResponse({'moves': response})
+        return JsonResponse({
+            'isOk': response[0],
+            'capture': response[1],
+            'promotion': response[2]})
 
     return render(request, 'game.html', {'color': "white"})
+
+
+@login_required
+def promotion(request, pid):
+    player = get_player(request)
+
+    if player_has_game(player, pid):
+
+        PIECE_TABLE = {
+            'Bishop': 1,
+            'Knight': 2,
+            'Rock': 3,
+            'Queen': 4
+        }
+
+        piece_type = request.POST.get('pieceType').title()
+        client = TCPClient(command=TCPClient.PROMOTION,
+                           payload=PIECE_TABLE[piece_type])
+        response = client.send()
+
+        return JsonResponse({'promoteOk': response[0]})
+
 
 
 @login_required
