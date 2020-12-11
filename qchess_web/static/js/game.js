@@ -5,19 +5,20 @@ const COMMAND = {
 
 const IMG_PATH = "/static/images/pieces/";
 const IMAGES = createPieceImages();
-const COLOR_BORDER = "#179BB6";
-const COLOR_WHITE = '#51492E';
-const COLOR_BLACK = '#CABA86';
-const COLOR_SELECT = 'green';
-const COLOR_HOVER = '#555';
-const COLOR_HIGHLIGHT = "purple";
+const COLOR_BORDER = "#332211";
+const COLOR_WHITE = '#F7E7C4';
+const COLOR_BLACK = '#8F4D27';
+const COLOR_SELECT = '#4BE846';
+const COLOR_HOVER = '#60B7C9';
+const COLOR_HIGHLIGHT = "#3CAD38";
 const EMPTY = ".";
 
-const BOARD_WIDTH = 400;
-const BOARD_HEIGHT = 400;
+const BOARD_WIDTH = 700;
+const BOARD_HEIGHT = BOARD_WIDTH;
 
 const csrftoken = getCookie('csrftoken');
 let board;
+let popupAcitvated = false;
 
 $(document).ready(function() {
 
@@ -25,17 +26,43 @@ $(document).ready(function() {
         color: $("#player").data("color"),
     };
 
-    const ctx = getGraphcisContext();
+    const ctx = getGraphcisContext("board");
+    //const ctxPopup = getGraphcisContext("popup");
+
     board = new Board(ctx.canvas.width, ctx, player.color);
+    //popup = new Popup(ctx, player.color);
     //let b = "RNBQKBNRPPPPPPPP................................pppppppprnbqkbnr"
     //board.update(b);
 
-    sendGetBoard();
+    /* TODO: Resize board when bigger/smaller?
+    window.onresize = (e) => {
+        console.log($(window).height(), $(window).width());
+    };
+    */
 
+    $("#testbtn").click((e) => {
+        $('#modal').modal('show');
+    });
+
+    $("#promoteQueen").click(() => modalCallback("queen"));
+    $("#promoteRock").click(() => modalCallback("rock"));
+    $("#promoteKnight").click(() => modalCallback("knight"));
+    $("#promoteBishop").click(() => modalCallback("bishop"));
+
+    sendGetBoard();
 });
 
-function getGraphcisContext() {
-    const ctx = $("#board")[0].getContext('2d');
+function modalCallback(pieceType) {
+    sendPromote(pieceType);
+    $("#modal").modal("hide");
+}
+
+function askForPromotion() {
+    $('#modal').modal('show');
+}
+
+function getGraphcisContext(id) {
+    const ctx = $("#" + id)[0].getContext('2d');
     ctx.canvas.width = BOARD_WIDTH;
     ctx.canvas.height = BOARD_HEIGHT;
     ctx.textAlign = "center";
@@ -73,6 +100,20 @@ function createImage(src) {
     return img;
 }
 
+function sendPromote(pieceType) {
+    sendToServer("promotion/", {pieceType: pieceType}, (data) => {
+        sendGetBoard();
+    });
+}
+
+function sendGetStatus() {
+    sendToServer("get_status/", payload, (moveResult) => {
+        sendGetBoard();
+        if (moveResult.promotion)
+            askForPromotion();
+    });
+}
+
 function sendGetAvailableMoves(square, board) {
     sendToServer("get_moves/", {square: square}, (data) => {
         let moves = data.moves.split(' ');
@@ -83,14 +124,17 @@ function sendGetAvailableMoves(square, board) {
 
 function sendMakeMove(moveFrom, moveTo) {
     let payload = {moveFrom: moveFrom, moveTo: moveTo};
-    sendToServer("make_move/", payload, (data) => {
-        console.log(data);
+    sendToServer("make_move/", payload, (moveResult) => {
         sendGetBoard();
+        if (moveResult.promotion)
+            askForPromotion();
     });
 }
 
 function sendGetBoard() {
-    sendToServer("get_board/", {}, (data) => board.update(data.board));
+    sendToServer("get_board/", {}, (data) => {
+        board.update(data.board)
+    });
 }
 
 function sendToServer(url, payload, callback) {
@@ -153,6 +197,8 @@ class Board {
     }
 
     onMouseHover(e) {
+        if (popupAcitvated)
+            return;
         let pos = getCursorPosition(this.ctx.canvas, e);
 
         for (var r = 0; r < 8; r++) {
@@ -181,6 +227,8 @@ class Board {
         }
 
     onMouseClick(e) {
+        if (popupAcitvated)
+            return;
         let pos = getCursorPosition(this.ctx.canvas, e);
         for (var row = 0; row < 8; row++) {
             for (var col = 0; col < 8; col++) {
@@ -322,14 +370,18 @@ class Board {
         let sign = this.playerColor == "black" ? 1 : -1;
 
         this.ctx.fillStyle = COLOR_BORDER;
-        for (var r = 0; r < 8; r++) {
+        for (var r = 0; r < 9; r++) {
+            this.ctx.strokeStyle = "black";
             let cy = y + (this.squareSize / 2) + this.squareSize * .2;
             this.ctx.strokeRect(x, y, this.squareSize, this.squareSize);
             this.ctx.fillRect(x, y, this.squareSize, this.squareSize);
 
-            this.ctx.strokeText(start, cx, cy);
-            y += this.squareSize;
-            start += sign;
+            if (r < 8) {
+                this.ctx.strokeStyle = "white";
+                this.ctx.strokeText(start, cx, cy);
+                y += this.squareSize;
+                start += sign;
+            }
         }
     }
 
@@ -343,9 +395,11 @@ class Board {
         for (var r = 0; r < 8; r++) {
             let x = xStart + r * this.squareSize;
             let cx = x + (this.squareSize / 2);
-
+            this.ctx.strokeStyle = "black";
             this.ctx.strokeRect(x, y, this.squareSize, this.squareSize);
             this.ctx.fillRect(x, y, this.squareSize, this.squareSize);
+
+            this.ctx.strokeStyle = "white";
             let char = String.fromCharCode(65+r);
             this.ctx.strokeText(char, cx, cy);
         }
@@ -381,6 +435,7 @@ class Square {
         this.row = row;
         this.col = col;
         this.piece = null;
+        this.image = null;
         this.x2 = this.x + size;
         this.y2 = this.y + size;
         this.size = size;
@@ -405,8 +460,10 @@ class Square {
     }
 
     draw() {
-        if (this.image != null)
-            this.ctx.drawImage(this.image, this.x, this.y);
+        if (this.image != null) {
+            //                  image        dx      dy       width     height
+            this.ctx.drawImage(this.image, this.x, this.y, this.size, this.size);
+        }
     }
 
     update(symbol) {
@@ -416,7 +473,10 @@ class Square {
         if (this.piece != EMPTY) {
             this.image = new Image();
             this.image.src = img.src;
-            this.image.onload = () => this.ctx.drawImage(this.image, this.x, this.y);
+
+            this.image.onload = () => {
+                this.draw();
+            };
         } else {
             this.image = null;
             this.piece = null;
@@ -425,8 +485,6 @@ class Square {
     }
 
     fillCell(color) {
-        this.ctx.strokeStyle = "black";
-        this.ctx.strokeRect(this.x, this.y, this.size, this.size);
         this.ctx.fillStyle = color;
         this.ctx.fillRect(this.x, this.y, this.size, this.size);
         this.draw();
