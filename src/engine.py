@@ -228,7 +228,7 @@ class Engine:
             was valid, if it caused a promotion and if it was a capture.
         """
 
-        result = MoveResult(promotion=self.is_promotion())
+        result = MoveResult()
 
         if (self.is_check_mate() or self.is_draw() or self.is_resigned() or
            self.is_promotion()):
@@ -245,6 +245,9 @@ class Engine:
             else:
                 result.is_ok = False
 
+        result.promotion = self.is_promotion()
+        print(result)
+
         return result
 
     def is_promotion(self):
@@ -254,7 +257,8 @@ class Engine:
         if piece_type in [PieceType.Bishop, PieceType.Rock, PieceType.Knight,
                           PieceType.Queen]:
             piece = Piece(piece_type, self._current_color)
-            self._put(self._promotion_sq.row, self._promotion_sq.col, piece)
+            row, col = self._promotion_sq
+            self._put(row, col, piece)
             self._promotion_sq = None
             return True
         return False
