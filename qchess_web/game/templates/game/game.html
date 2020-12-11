@@ -3,16 +3,79 @@
 {% load static %}
 
 
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/game.css' %}" type="text/css">
+{% endblock %}
+
+
 {% block content %}
     <h1>GAME</h1>
 
     {% csrf_token %}
 
-
-    <canvas id="board"></canvas>
-
+    <div class="container-frame">
+        <canvas class="board-frame" id="board"></canvas>
+    </div>
 
     <input type="hidden" id="player" data-color={{ color }}></input>
+
+    <button id="testbtn">TEST</button>
+
+    <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modal_label" aria-hidden="true" data-backdrop="static">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal_label">Choose promotion</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="container">
+                                <div class="row">
+                                    <div class="image-button col-3">
+                                        <a href="javascript:void(0);" id="promoteQueen">
+                                            {% if color == "black" %}
+                                                <img src="{% static 'images/pieces/bqueen.svg' %}" width="80" height="80">
+                                            {% else %}
+                                                <img src="{% static 'images/pieces/wqueen.svg' %}" width="80" height="80">
+                                            {% endif %}
+                                        </a>
+                                    </div>
+                                    <div class="image-button col-3">
+                                        <a href="javascript:void(0);" id="promoteRock">
+                                            {% if color == "black" %}
+                                                <img src="{% static 'images/pieces/brock.svg' %}" width="80" height="80">
+                                            {% else %}
+                                                <img src="{% static 'images/pieces/wrock.svg' %}" width="80" height="80">
+                                            {% endif %}
+                                        </a>
+                                    </div>
+                                    <div class="image-button col-3">
+                                        <a href="javascript:void(0);" id="promoteKnight">
+                                            {% if color == "black" %}
+                                                <img src="{% static 'images/pieces/bknight.svg' %}" width="80" height="80">
+                                            {% else %}
+                                                <img src="{% static 'images/pieces/wknight.svg' %}" width="80" height="80">
+                                            {% endif %}
+                                        </a>
+                                    </div>
+                                    <div class="image-button col-3">
+                                        <a href="javascript:void(0);" id="promoteBishop">
+                                            {% if color == "black" %}
+                                                <img src="{% static 'images/pieces/bbishop.svg' %}" width="80" height="80">
+                                            {% else %}
+                                                <img src="{% static 'images/pieces/wbishop.svg' %}" width="80" height="80">
+                                            {% endif %}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                    </div>
+            </div>
+        </div>
+    </div>
 
 
 {% endblock %}
