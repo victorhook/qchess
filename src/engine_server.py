@@ -71,23 +71,22 @@ class TCPServer:
                 move = packet.data.decode('utf-8')
                 move_result = self.engine.make_move(move)
                 response = protocol.rsp_pkt_move_result(move_result)
-                print('Making move!')
-                print(response)
 
             elif packet.cmd == protocol.Command.GET_BOARD:
                 board = self.engine.get_board_as_string()
                 response = protocol.rsp_pkt_get_board(board)
 
             elif packet.cmd == protocol.Command.GET_STATUS:
-                packet = protocol.pkt_get_status()
+                pass
 
-            elif packet.cmd == protocol.Command.PROMOTE_PIECE:
-                packet = protocol.pkt_promote_piece(self.payload)
+            elif packet.cmd == protocol.Command.PROMOTION:
+                promote_ok = self.engine.make_promotion(ord(packet.data))
+                response = protocol.rsp_pkt_promotion(promote_ok)
 
             elif packet.cmd == protocol.Command.RESIGN:
-                packet = protocol.pkt_resign()
+                pass
 
-            #print('Response: %s' % response)
+            print('Response: %s' % response)
             self.sock.send(response)
 
 

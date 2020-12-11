@@ -49,7 +49,7 @@ REPLY_PACKET_SIZE = 79
     MAKE_MOVE           -> Return if move is OK
     GET_BOARD           -> Return current board
     GET_STATUS          -> Return list of status flags
-    PROMOTE_PIECE       -> Return promotion OK
+    PROMOTION       -> Return promotion OK
     RESIGN              -> Return confirmation
 """
 
@@ -59,7 +59,7 @@ class Command:
     MAKE_MOVE = 11
     GET_BOARD = 12
     GET_STATUS = 13
-    PROMOTE_PIECE = 14
+    PROMOTION = 14
     RESIGN = 15
 
 
@@ -108,8 +108,8 @@ def pkt_get_board():
     return packet(Command.GET_BOARD)
 
 
-def pkt_promote_piece(promotion):
-    return packet(Command.GET_BOARD, promotion)
+def pkt_PROMOTION(promotion):
+    return packet(Command.PROMOTION, promotion)
 
 
 def pkt_resign():
@@ -122,4 +122,9 @@ def rsp_pkt_get_board(board):
 
 
 def rsp_pkt_move_result(move_result):
-    return packet(Command.GET_BOARD, move_result.as_list())
+    return packet(Command.MAKE_MOVE, move_result.as_list())
+
+
+def rsp_pkt_promotion(promote_ok):
+    payload = [1] if promote_ok else [0]
+    return packet(Command.PROMOTION, payload)

@@ -13,7 +13,7 @@ PORT = 9999
     MAKE_MOVE           -> Return if move is OK
     GET_BOARD           -> Return current board
     GET_STATUS          -> Return list of status flags
-    PROMOTE_PIECE       -> Return promotion OK
+    PROMOTION           -> Return promotion OK
     RESIGN              -> Return confirmation
 """
 
@@ -24,7 +24,7 @@ class TCPClient:
     MAKE_MOVE = protocol.Command.MAKE_MOVE
     GET_BOARD = protocol.Command.GET_BOARD
     GET_STATUS = protocol.Command.GET_STATUS
-    PROMOTE_PIECE = protocol.Command.PROMOTE_PIECE
+    PROMOTION = protocol.Command.PROMOTION
     RESIGN = protocol.Command.RESIGN
 
     def __init__(self, command, payload=None):
@@ -65,8 +65,8 @@ class TCPClient:
         elif self.cmd == protocol.Command.GET_STATUS:
             packet = protocol.pkt_get_status()
 
-        elif self.cmd == protocol.Command.PROMOTE_PIECE:
-            packet = protocol.pkt_promote_piece(self.payload)
+        elif self.cmd == protocol.Command.PROMOTION:
+            packet = protocol.pkt_PROMOTION([self.payload])
 
         elif self.cmd == protocol.Command.RESIGN:
             packet = protocol.pkt_resign()
@@ -74,10 +74,12 @@ class TCPClient:
         self.sock.send(packet)
         response = self._read_packet()
 
-        if self.cmd == protocol.Command.MAKE_MOVE:
+        if (self.cmd == protocol.Command.MAKE_MOVE or
+           self.cmd == protocol.Command.PROMOTION):
             response = self._parse_booleans(response.data)
         else:
             response = response.data.decode('utf-8')
+
         return response
 
     def _parse_booleans(self, data):
