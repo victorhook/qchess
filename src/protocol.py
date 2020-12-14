@@ -59,8 +59,10 @@ class Command:
     MAKE_MOVE = 11
     GET_BOARD = 12
     GET_STATUS = 13
-    PROMOTION = 14
-    RESIGN = 15
+    GET_WINNER = 14
+    GET_MOVE_HISTORY = 15
+    PROMOTION = 16
+    RESIGN = 17
 
 
 class Promotion:
@@ -71,7 +73,14 @@ class Promotion:
 
 
 def packet(cmd, payload=[]):
-    size = len(payload) if payload else 0
+
+    size = 0
+    for data in payload:
+        if type(data) is float:
+            size += 4
+        else:
+            size += 1
+
     pack = bytearray(1 + struct.calcsize('I') + size)
     struct.pack_into('B', pack, 0, cmd)
     struct.pack_into('I', pack, 1, size)
@@ -80,14 +89,22 @@ def packet(cmd, payload=[]):
     for data in payload:
         data_type = type(data)
         fmt = 'B'
+
+        if data_type is float:
+            fmt = 'f'
+
         if data_type is str:
             data = ord(data)
-        elif data_type is float:
-            fmt = 'f'
-            i += 3
+
+        elif data_type is bool:
+            data = 1 if data else 0
 
         struct.pack_into(fmt, pack, i+1+struct.calcsize('I'), data)
-        i += 1
+
+        if data_type is float:
+            i += 4
+        else:
+            i += 1
 
     return pack
 
@@ -108,7 +125,15 @@ def pkt_get_board():
     return packet(Command.GET_BOARD)
 
 
-def pkt_PROMOTION(promotion):
+def pkt_get_winner():
+    return packet(Command.GET_WINNER)
+
+
+def pkt_get_move_history():
+    return packet(Command.GET_MOVE_HISTORY)
+
+
+def pkt_promotion(promotion):
     return packet(Command.PROMOTION, promotion)
 
 
@@ -128,3 +153,23 @@ def rsp_pkt_move_result(move_result):
 def rsp_pkt_promotion(promote_ok):
     payload = [1] if promote_ok else [0]
     return packet(Command.PROMOTION, payload)
+
+
+def rsp_pkt_get_status(status):
+    return packet(Command.GET_STATUS, status)
+
+
+def rsp_pkt_get_move_history(history):
+    byte_history = bytearray()
+    for move in history:
+        byte_history.extend(move.as_bytes())
+    return packet(Command.GET_MOVE_HISTORY, byte_history)
+
+
+def rsp_pkt_get_winner(winner):
+    winner = 0xff if winner is None else winner
+    return packet(Command.GET_WINNER, [winner])
+
+
+def rsp_pkt_resign(resign_ok):
+    return packet(Command.RESIGN, [resign_ok])

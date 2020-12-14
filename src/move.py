@@ -13,9 +13,12 @@ class Move:
     def prettify(self, square):
         return chr(square[1] + 65) + chr(square[0] + 49)
 
+    def as_bytes(self):
+        return str(self).encode('utf-8')
+
     def __str__(self):
         return self.prettify(self.move_from) + self.prettify(self.move_to)
 
     def __repr__(self):
         return '%s -> %s' % (self.prettify(self.move_from),
-                                  self.prettify(self.move_to))
+                             self.prettify(self.move_to))

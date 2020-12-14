@@ -19,3 +19,9 @@ class History:
         if self.moves:
             return self.moves[len(self.moves)-1]
 
+    def __iter__(self):
+        return iter(self.moves)
+
+    def __repr__(self):
+        return ', '.join([str(move) for move in self.moves])
+
