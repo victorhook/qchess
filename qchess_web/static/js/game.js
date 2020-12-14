@@ -17,22 +17,21 @@ const BOARD_WIDTH = 700;
 const BOARD_HEIGHT = BOARD_WIDTH;
 
 const csrftoken = getCookie('csrftoken');
+
 let board;
 let popupAcitvated = false;
+let moveTable;
+
+let player = {color: $("#player").data("color")};
+let PLATER = player.color == "white" ? 0 : 1;
 
 $(document).ready(function() {
 
-    let player = {
-        color: $("#player").data("color"),
-    };
-
     const ctx = getGraphcisContext("board");
-    //const ctxPopup = getGraphcisContext("popup");
 
     board = new Board(ctx.canvas.width, ctx, player.color);
-    //popup = new Popup(ctx, player.color);
-    //let b = "RNBQKBNRPPPPPPPP................................pppppppprnbqkbnr"
-    //board.update(b);
+    moveTable = $("#tableMoves");
+
 
     /* TODO: Resize board when bigger/smaller?
     window.onresize = (e) => {
@@ -40,17 +39,35 @@ $(document).ready(function() {
     };
     */
 
-    $("#testbtn").click((e) => {
-        $('#modal').modal('show');
-    });
+
+    /* -- Modal callbacks -- */
+
+    $("#resignBtn").click((e) => $('#resignModal').modal('show'));
+    $("#resignNo").click((e) => $("#resignModal").modal("hide"));
+    $("#resignYes").click((e) => sendResign());
 
     $("#promoteQueen").click(() => modalCallback("queen"));
     $("#promoteRock").click(() => modalCallback("rock"));
     $("#promoteKnight").click(() => modalCallback("knight"));
     $("#promoteBishop").click(() => modalCallback("bishop"));
 
+    $("#winCloseBtn").click((e) => $("#winModal").modal("hide"));
+    $("#looseModal").click((e) => $("#looseCloseBtn").modal("hide"));
+
+
     sendGetBoard();
+    sendGetMoveHistory();
+    sendGetStatus();
 });
+
+function addMoveToTable(move) {
+    moveTable.append('<tr>');
+    let row = moveTable.children('tr:last');
+    row.append('<td>' + move.moveNbr + '</td>');
+    row.append('<td>' + move.moveFrom + '</td>');
+    row.append('<td>' + move.moveTo + '</td>');
+    moveTable.append('</tr>');
+}
 
 function modalCallback(pieceType) {
     sendPromote(pieceType);
@@ -100,6 +117,12 @@ function createImage(src) {
     return img;
 }
 
+function sendGetMoveHistory() {
+    sendToServer("get_move_history/", {}, (moveHistory) => {
+        updateMoveTable(moveHistory.moves);
+    });
+}
+
 function sendPromote(pieceType) {
     sendToServer("promotion/", {pieceType: pieceType}, (data) => {
         sendGetBoard();
@@ -107,10 +130,31 @@ function sendPromote(pieceType) {
 }
 
 function sendGetStatus() {
-    sendToServer("get_status/", payload, (moveResult) => {
-        sendGetBoard();
-        if (moveResult.promotion)
-            askForPromotion();
+    sendToServer("get_status/", {}, (status) => {
+        console.log(status);
+        if (status.is_check_mate) {
+            let winner = sendGetWinner();
+        }
+
+        console.log(status);
+    });
+}
+
+function sendGetWinner() {
+    sendToServer("get_winner/", {}, (winner) => {
+        if (winner.color == player.color) {
+            $("#winModal").modal("show");
+        } else {
+            $("#looseModal").modal("show");
+        }
+    });
+}
+
+
+function sendResign() {
+    sendToServer("resign/", {}, (status) => {
+        $("#resignModal").modal("hide");
+        console.log(status);
     });
 }
 
@@ -125,15 +169,34 @@ function sendGetAvailableMoves(square, board) {
 function sendMakeMove(moveFrom, moveTo) {
     let payload = {moveFrom: moveFrom, moveTo: moveTo};
     sendToServer("make_move/", payload, (moveResult) => {
+        sendGetStatus();
         sendGetBoard();
+        sendGetMoveHistory();
         if (moveResult.promotion)
             askForPromotion();
     });
 }
 
+function updateMoveTable(moveHistory) {
+    moveTable.empty();
+
+    if (moveHistory != null) {
+        for (let i = 0; i < moveHistory.length; i++) {
+            let move = moveHistory[i];
+            addMoveToTable({
+                moveNbr: i+1,
+                moveFrom: move.substring(0, 2),
+                moveTo: move.substring(2, 4),
+            });
+
+        }
+    }
+
+}
+
 function sendGetBoard() {
     sendToServer("get_board/", {}, (data) => {
-        board.update(data.board)
+        board.update(data.board);
     });
 }
 
