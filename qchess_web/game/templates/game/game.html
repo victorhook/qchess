@@ -9,17 +9,46 @@
 
 
 {% block content %}
-    <h1>GAME</h1>
+
 
     {% csrf_token %}
 
-    <div class="container-frame">
-        <canvas class="board-frame" id="board"></canvas>
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex container-frame justify-content-center">
+                <h1>GAME</h1>
+            </div>
+        </div>
     </div>
 
-    <input type="hidden" id="player" data-color={{ color }}></input>
+    <div class="row">
+        <div class="offset-lg-3 col-lg-5">
+            <canvas class="board-frame" id="board"></canvas>
+        </div>
+        <div class="offset-lg-1 col-lg-3">
+            <h3>Game analysis</h3>
+            <table id="gameAnalysis">
+                <thead>
+                    <tr>
+                        <th>Move</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody id="tableMoves">
 
-    <button id="testbtn">TEST</button>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <button id="testbtn">TEST</button>
+            <button id="resignBtn">Resign</button>
+        </div>
+    </div>
+
 
     <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modal_label" aria-hidden="true" data-backdrop="static">
         <div class="modal-dialog" role="document">
@@ -77,6 +106,80 @@
         </div>
     </div>
 
+    <div class="modal fade" id="resignModal" tabindex="-1" role="dialog" aria-labelledby="resignModal" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resignModal">Are you sure you want to resign?</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="container">
+                                <div class="row">
+                                    <button type="button" class="btn btn-primary" id="resignYes">Yes</button>
+                                    <button type="button" class="btn btn-primary" id="resignNo">No</button>
+                                </div>
+                            </div>
+
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="winModal" tabindex="-1" role="dialog" aria-labelledby="winModal" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="winModal">Victory</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="container">
+                                <div class="row">
+                                    <form method="POST" action="{% url 'new_game' %}">
+                                        {% csrf_token %}
+                                        <input type="submit" class="btn btn-primary" value="Play again">
+                                    </form>
+                                    <button type="button" class="btn btn-primary" id="winCloseBtn">Close</button>
+                                </div>
+                            </div>
+
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="looseModal" tabindex="-1" role="dialog" aria-labelledby="looseModal" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="looseModal">Defeat</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="container">
+                                <div class="row">
+                                    <form method="POST" action="{% url 'new_game' %}">
+                                        {% csrf_token %}
+                                        <input type="submit" class="btn btn-primary"  value="Play again">
+                                    </form>
+                                    <button type="button" class="btn btn-primary" id="looseCloseBtn">Close</button>
+                                </div>
+                            </div>
+
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meta info -->
+    <input type="hidden" id="player" data-color={{ color }}></input>
 
 {% endblock %}
 
