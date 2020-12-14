@@ -66,7 +66,7 @@ class Engine:
         # |  is_checked  | is_check_mate | is_draw | enemy_resign |
         # |  white score |  black score  | player turn |
         return [
-            self.is_checked(),
+            self.is_check(),
             self.is_check_mate(),
             self.is_draw(),
             self.enemy_resign(),
@@ -74,6 +74,9 @@ class Engine:
             self.get_score(Color.WHITE),
             self.get_score(Color.BLACK)
             ]
+
+    def get_move_history(self):
+        return self.history.get()
 
     def get_score(self, color):
         START_SCORE = 40            # Standard points
@@ -113,7 +116,7 @@ class Engine:
         return moves
 
     def get_winner(self):
-        color = self.self._current_color
+        color = self._current_color
         self._current_color = Color.WHITE
         white_moves = len(self.get_all_available_moves())
         self._current_color = Color.BLACK
@@ -121,11 +124,13 @@ class Engine:
         self._current_color = color
 
         if white_moves == 0:
-            winner = Color.WHITE
-        elif black_moves == 0:
             winner = Color.BLACK
+        elif black_moves == 0:
+            winner = Color.WHITE
         else:
             winner = None
+
+        print(white_moves, black_moves, winner)
 
         return winner
 
@@ -133,7 +138,7 @@ class Engine:
         return self._current_color
 
     def enemy_resign(self):
-        if self._current_color == Color.WHITE:
+        if self._current_color == Color.BLACK:
             resign = self._w_ressign
         else:
             resign = self._b_ressign
@@ -147,6 +152,7 @@ class Engine:
             self._w_ressign = True
         else:
             self._b_ressign = True
+        return True
 
     def is_checked(self):
         king_square = self._find_king()
@@ -156,6 +162,13 @@ class Engine:
 
         check = self._under_attack(king_square, king_color)
 
+        return check
+
+    def is_check(self):
+        check = self.is_checked()
+        self.swap_color()
+        check |= self.is_checked()
+        self.swap_color()
         return check
 
     def is_draw(self):
@@ -227,6 +240,7 @@ class Engine:
             returns: A MoveResult, containing information if the move
             was valid, if it caused a promotion and if it was a capture.
         """
+        self.get_move_history()
 
         result = MoveResult()
 
@@ -246,7 +260,6 @@ class Engine:
                 result.is_ok = False
 
         result.promotion = self.is_promotion()
-        print(result)
 
         return result
 
@@ -280,7 +293,6 @@ class Engine:
             self._promotion_sq = move.move_to
 
         elif self._castle_move(move):
-            #print('castle')
             self._move_rocks(move)
 
         piece = self._get(from_r, from_c)
@@ -818,4 +830,10 @@ class Engine:
 if __name__ == "__main__":
 
     engine = Engine()
+    engine.make_move('d2 d4')
+    history = engine.get_move_history()
+    byte_history = bytearray()
+    for move in history:
+        byte_history.extend(move.as_bytes())
+    print(byte_history)
     #engine.run()

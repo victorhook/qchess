@@ -9,17 +9,23 @@ import engine
 import protocol
 
 
+def debug_to(info, filepath='/home/victor/coding/projects/qchess/log/server.log'):
+    with open(filepath, 'a') as f:
+        f.write(info + ' \n')
+
+
 class TCPServer:
 
     IP = ''
-    #PORT = os.getpid()
-    PORT = 9999
+    PORT = os.getpid()
+    #PORT = 9999
 
     def __init__(self):
         # Start chess engine
         self.engine = engine.Engine()
         self._sock = None
         self._flag = Event()
+        debug_to('[%s] TCP Server started' % TCPServer.PORT)
 
     def run(self):
         # Start listening for connections
@@ -32,6 +38,7 @@ class TCPServer:
         while not self._flag.is_set():
             client = self._sock.accept()[0]
             print('New request!')
+            debug_to('[%s] New request' % TCPServer.PORT)
             self.RequestHandler(client, self.engine).start()
 
     def stop(self):
@@ -77,18 +84,27 @@ class TCPServer:
                 response = protocol.rsp_pkt_get_board(board)
 
             elif packet.cmd == protocol.Command.GET_STATUS:
-                pass
+                status = self.engine.get_status()
+                response = protocol.rsp_pkt_get_status(status)
+
+            elif packet.cmd == protocol.Command.GET_WINNER:
+                winner = self.engine.get_winner()
+                response = protocol.rsp_pkt_get_winner(winner)
+
+            elif packet.cmd == protocol.Command.GET_MOVE_HISTORY:
+                history = self.engine.get_move_history()
+                print(history)
+                response = protocol.rsp_pkt_get_move_history(history)
 
             elif packet.cmd == protocol.Command.PROMOTION:
                 promote_ok = self.engine.make_promotion(ord(packet.data))
                 response = protocol.rsp_pkt_promotion(promote_ok)
 
             elif packet.cmd == protocol.Command.RESIGN:
-                pass
+                resign_ok = self.engine.resign()
+                response = protocol.rsp_pkt_resign(resign_ok)
 
-            print('Response: %s' % response)
             self.sock.send(response)
-
 
         def read_square(self):
             square = self.sock.recv(2)
@@ -98,6 +114,11 @@ class TCPServer:
             def __init__(self, cmd, data=None):
                 self.cmd = ord(cmd)
                 self.data = data
+
+
+
+
+
 
 if __name__ == "__main__":
     server = TCPServer()
