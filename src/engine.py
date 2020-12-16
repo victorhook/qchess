@@ -1,12 +1,19 @@
 import argparse
 import random
+import os
 import sys
+import dill
 
-from engine_cli import parse_args
+#from engine_cli import parse_args
 from history import History
 from move import Move
 from piece import Piece, Color, PieceType,  PIECE_SCORE
 from piece import WHITE_PIECES_ASCII_TABLE, BLACK_PIECES_ASCII_TABLE
+
+
+SAVE_PATH = 'saved_games'
+SAVE_NAME = '_game_'
+DEFAULT_PATH = os.path.join(SAVE_PATH, SAVE_NAME + str(os.getpid()))
 
 
 class MoveResult:
@@ -34,7 +41,10 @@ class Square:
 
 class Engine:
 
-    def __init__(self, cli_display=False):
+    def __init__(self, id=os.getpid(), cli_display=False):
+
+        self.id = id
+        self._out = sys.stdout
 
         self._pwhite = None
         self._pblack = None
@@ -60,7 +70,51 @@ class Engine:
         if self._cli_display:
             self._display()
 
+        self._ensure_savepath_exists()
+
+    def _ensure_savepath_exists(self):
+        if not os.path.exists(SAVE_PATH):
+            print('Failed to find path for saving the game: "'
+                  f'{SAVE_PATH}".\n'
+                  'Please make sure it exists!')
+            sys.exit(1)
+
+    """ Class methods """
+    @staticmethod
+    def load(filepath=None):
+        if filepath is None:
+            filepath = DEFAULT_PATH
+        try:
+            with open(filepath, 'rb') as f:
+                engine = dill.load(f)
+        except FileNotFoundError:
+            print('No previous active game found, starting new')
+            engine = Engine()
+        return engine
+
     """ Public """
+
+    def save(self, filepath=None):
+        if filepath is None:
+            filepath = DEFAULT_PATH
+
+        with open(filepath, 'wb') as f:
+            dill.dump(self, f)
+
+        """ Probably not even needed, we can simply dill obj.
+        state = {
+            '_b_king_moved': self._w_king_moved,
+            '_w_king_moved': self._b_king_moved,
+            '_w_en_passant': self._w_en_passant,
+            '_b_en_passant': self._b_en_passant,
+            '_w_ressign': self._w_ressign,
+            '_b_ressign': self._b_ressign,
+            '_promotion_sq': self._promotion_sq,
+            '_board': self.get_board_as_string(),
+            '_current_color': self._current_color,
+            'history': str(self.history),
+        }
+        """
 
     def get_status(self):
         # |  is_checked  | is_check_mate | is_draw | enemy_resign |
@@ -246,8 +300,6 @@ class Engine:
                 result.is_ok = False
 
         result.promotion = self.is_promotion()
-        print(result)
-
         return result
 
     def is_promotion(self):
@@ -817,5 +869,10 @@ class Engine:
 
 if __name__ == "__main__":
 
-    engine = Engine()
+    engine = Engine.load('saved_games/dev')
+
+
+    #engine = Engine()
+    #with open('dillR', 'rb') as f:
+    #    engine = dill.load(f)
     #engine.run()
