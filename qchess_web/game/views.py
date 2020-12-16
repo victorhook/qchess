@@ -1,225 +1,131 @@
-from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
 
-from player.models import Player
-from game.models import ActiveGame
+from qchess_web import utils
 
-from datetime import datetime
 
 import sys
 ENGINE_PATH = '/home/victor/coding/projects/qchess/src'
 sys.path.append(ENGINE_PATH)
-from engine_client import TCPClient
+from engine_loader import EngineLoader  # noqa
 
 
-@login_required
-def game(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        color = player_color(player, pid)
-        return render(request, 'game.html', {'color': color})
-    else:
-        return redirect('/')
 
-@login_required
-def get_status(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        client = TCPClient(command=TCPClient.GET_STATUS, port=pid)
-        status = client.send()
-        status = {
-            'is_checked': status[0],
-            'is_check_mate': status[1],
-            'is_draw': status[2],
-            'enemy_resign': status[3],
-            'player_color': status[4],
-            'white_score': status[5],
-            'black_score': status[6]
-        }
-
-        return JsonResponse(status)
-
-@login_required
-def get_winner(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        client = TCPClient(command=TCPClient.GET_WINNER, port=pid)
-        winner = client.send()
-        print('winner: %s' % winner)
-
-        return JsonResponse({'color': winner})
+@utils.auth_active_game
+def game(request, game_id):
+    player = utils.get_player(request)
+    color = utils.player_color(player, game_id)
+    return render(request, 'game.html', {'color': color})
 
 
-@login_required
-def resign(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        client = TCPClient(command=TCPClient.RESIGN, port=pid)
-        resign_ok = client.send()
+@utils.auth_active_game
+def get_status(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
+    status = engine.get_status()
+    status = {
+        'is_checked': status[0],
+        'is_check_mate': status[1],
+        'is_draw': status[2],
+        'enemy_resign': status[3],
+        'player_color': status[4],
+        'white_score': status[5],
+        'black_score': status[6]
+    }
 
-        return JsonResponse({'resign_ok': resign_ok})
+    if status['is_check_mate'] or status['enemy_resign']:
+        utils.game_over(game_id)
+
+    return JsonResponse(status)
 
 
-@login_required
-def get_move_history(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        client = TCPClient(command=TCPClient.GET_MOVE_HISTORY, port=pid)
-        moves = client.send()
+@utils.auth_active_game
+def get_winner(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
+    color = engine.get_winner()
+    winner = 'white' if color == utils.WHITE else 'black'
+    return JsonResponse({'color': winner})
 
-        return JsonResponse({'moves': moves})
+@utils.auth_active_game
+def resign(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
+    resign_ok = engine.resign()
+    return JsonResponse({'resign_ok': resign_ok})
 
 
-@login_required
-def get_moves(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        square = request.POST.get('square')
-        client = TCPClient(command=TCPClient.GET_AVAILABLE_MOVES, port=pid,
-                           payload=square)
-        response = client.send()
-        response = b'' if response is None else response
+@utils.auth_active_game
+def get_move_history(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
+    history = [str(move) for move in engine.history]
+    return JsonResponse({'moves': history})
 
-        return JsonResponse({'moves': response})
 
-    return render(request, 'game.html', {'color': "white"})
+@utils.auth_active_game
+def get_moves(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
+    square = request.POST.get('square')
+    moves = engine.get_available_moves(square)
+    # Get the moveTo-squares from all of the moves.
+    moves = [str(move)[2:] for move in moves]
+    return JsonResponse({'moves': moves})
 
-@login_required
-def play_again(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        kill_engine(pid)
-        clear_active_game(pid)
+
+@utils.auth_active_game
+def play_again(request, game_id):
+    utils.game_over(game_id)
+    pass
+    """
+    player = utils.get_player(request)
+    if player_has_game(player, game_id):
+        kill_engine(game_id)
+        clear_active_game(game_id)
         return redirect('/game/new_game/')
 
     return redirect('/')
+    """
 
 
-
-@login_required
-def get_board(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        client = TCPClient(command=TCPClient.GET_BOARD, port=pid)
-        response = client.send()
-        return JsonResponse({'board': response})
+@utils.auth_active_game
+def get_board(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
+    board = engine.get_board_as_string()
+    return JsonResponse({'board': board})
 
 
-@login_required
-def make_move(request, pid):
-    player = get_player(request)
-    if player_has_game(player, pid):
-        move_from = request.POST.get('moveFrom')
-        move_to = request.POST.get('moveTo')
-        move = '%s %s' % (move_from, move_to)
-        client = TCPClient(command=TCPClient.MAKE_MOVE, port=pid,
-                           payload=move)
-        response = client.send()
+@utils.auth_active_game
+def make_move(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
+    move_from = request.POST.get('moveFrom')
+    move_to = request.POST.get('moveTo')
+    move_result = engine.make_move(move_from + ' ' + move_to)
 
-        return JsonResponse({
-            'isOk': response[0],
-            'capture': response[1],
-            'promotion': response[2]})
-
-    return render(request, 'game.html', {'color': "white"})
+    return JsonResponse({
+        'isOk': move_result.is_ok,
+        'capture': move_result.capture,
+        'promotion': move_result.promotion})
 
 
-@login_required
-def promotion(request, pid):
-    player = get_player(request)
+@utils.auth_active_game
+def promotion(request, game_id):
+    engine = EngineLoader.load_engine(game_id)
 
-    if player_has_game(player, pid):
+    PIECE_TABLE = {
+        'Bishop': 1,
+        'Knight': 2,
+        'Rock': 3,
+        'Queen': 4
+    }
 
-        PIECE_TABLE = {
-            'Bishop': 1,
-            'Knight': 2,
-            'Rock': 3,
-            'Queen': 4
-        }
-
-        piece_type = request.POST.get('pieceType').title()
-        client = TCPClient(command=TCPClient.PROMOTION, port=pid,
-                           payload=PIECE_TABLE[piece_type])
-        response = client.send()
-
-        return JsonResponse({'promoteOk': response[0]})
+    piece_type = request.POST.get('pieceType').title()
+    promote_ok = engine.make_promotion(PIECE_TABLE[piece_type])
+    return JsonResponse({'promoteOk': promote_ok})
 
 
 @login_required
 def new_game(request):
-    class Command:
-        NEW_GAME = '1'
+    player = utils.get_player(request)
+    new_game = utils.create_new_game(player, white=True)
+    utils.debug_to('Created new game with game_id: %s' % new_game.game_id)
+    print('Created new game with game_id: %s' % new_game.game_id)
 
-    if request.method == 'POST':
-        player = get_player(request)
-
-        new_game = create_new_game(player, white=True)
-        debug_to('Created new game with pid: %s' % new_game.pid)
-        print('Created new game with pid: %s' % new_game.pid)
-
-        return redirect('/game/%s' % new_game.pid)
-
-
-def player_color(player, pid):
-    try:
-        game = ActiveGame.objects.get(pid=pid)
-    except ActiveGame.DoesNotExist:
-        print('Failed to find game with pid %s!' % pid)
-        return None
-
-    color = 'white' if game.white == player else 'black'
-    return color
-
-
-def get_player(request):
-    player = Player.objects.get(user=request.user)
-    return player
-
-
-def player_has_game(player, pid):
-    try:
-        game = ActiveGame.objects.get(pid=pid)
-    except ActiveGame.DoesNotExist:
-        print('Failed to find game with pid %s!' % pid)
-        return None
-    return game.white == player or game.black == player
-
-
-def create_new_game(player, white):
-    game = ActiveGame()
-    game.date_time = datetime.now()
-    if white:
-        game.white = player
-    else:
-        game.black = player
-    game.pid = invoke_engine()
-    game.save()
-    player.active_game = game
-    return game
-
-
-def kill_engine(pid):
-    import psutil
-    try:
-        psutil.Process(pid).terminate()
-    except psutil.NoSuchProcess:
-        pass
-
-
-def invoke_engine():
-    import subprocess
-    import os
-
-    PYTHON_PATH = '/home/victor/coding/projects/qchess/env/bin/python'
-    SOURCE = '/home/victor/coding/projects/qchess/src'
-    EXE = os.path.join(SOURCE, 'engine_server.py')
-
-    proc = subprocess.Popen([PYTHON_PATH, EXE], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return proc.pid
-
-
-def debug_to(info, filepath='/home/victor/coding/projects/qchess/log/debug.log'):
-    with open(filepath, 'a') as f:
-        f.write(info + ' \n')
+    return redirect('/game/%s' % new_game.game_id)
