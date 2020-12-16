@@ -25,3 +25,5 @@ class History:
     def __repr__(self):
         return ', '.join([str(move) for move in self.moves])
 
+    def __str__(self):
+        return ', '.join(str(move) for move in self.moves)
