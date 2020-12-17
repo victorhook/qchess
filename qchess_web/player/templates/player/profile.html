@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}" type="text/css">
+{% endblock %}
+
+
+{% block content %}
+
+<div class="game-table-div">
+    <h3>Active games</h3>
+
+    <hr>
+
+    {% if active_games %}
+
+        <table class="game-table">
+            <thead>
+                <tr class="table-row">
+                    <th>Started</th>
+                    <th>Color</th>
+                    <th>Mode</th>
+                    <th>Opponent</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for game in active_games %}
+                    <tr class="table-row">
+                        <td>{{ game.start }}</td>
+                        <td>{{ game.color }}</td>
+                        <td>{{ game.mode }}</td>
+                        <td>{{ game.opponent }}</td>
+
+                        <td><a href="{% url 'game' game_id=game.game_id %}">Continue playing</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    {% else %}
+        You have no active games, start one <a href="{% url 'new_game' %}">here!</a>
+    {% endif %}
+</div>
+
+<div class="game-table-div">
+    <h3>Game history</h3>
+
+    <hr>
+
+    {% if active_games %}
+
+        <table class="game-table">
+            <thead>
+                <tr class="table-row">
+                    <th>Result</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for game in history %}
+                    <tr class="table-row">
+                        <td>{{ game.result }}</td>
+                        <td>{{ game.start }}</td>
+                        <td>{{ game.end }}</td>
+                        <td><a href="javascript:void(0);">Moves</a></td>
+                        <td><a href="javascript:void(0);">Download pgn</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    {% else %}
+        You haven't played any games yet!
+
+    {% endif %}
+</div>
+
+{% endblock %}
