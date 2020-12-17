@@ -41,9 +41,12 @@ class Square:
 
 class Engine:
 
-    def __init__(self, id=os.getpid(), cli_display=False):
+    def __init__(self, game_id=os.getpid(), save_to=DEFAULT_PATH,
+                 cli_display=False, autosave=False):
 
-        self.id = id
+        self.save_to = save_to
+        self.autosave = autosave
+        self.game_id = game_id
         self._out = sys.stdout
 
         self._pwhite = None
@@ -73,11 +76,18 @@ class Engine:
         self._ensure_savepath_exists()
 
     def _ensure_savepath_exists(self):
-        if not os.path.exists(SAVE_PATH):
-            print('Failed to find path for saving the game: "'
-                  f'{SAVE_PATH}".\n'
-                  'Please make sure it exists!')
-            sys.exit(1)
+        if 'TEST' not in os.environ:
+            root = os.environ.get('SAVED_GAMES_ROOT', None)
+            if root is not None:
+                save_path = root
+            else:
+                save_path = SAVE_PATH
+
+            if not os.path.exists(save_path):
+                print('Failed to find path for saving the game: "'
+                    f'{save_path}".\n'
+                    'Please make sure it exists!')
+                sys.exit(1)
 
     """ Class methods """
     @staticmethod
@@ -96,7 +106,10 @@ class Engine:
 
     def save(self, filepath=None):
         if filepath is None:
-            filepath = DEFAULT_PATH
+            if self.save_to is None:
+                filepath = DEFAULT_PATH
+            else:
+                filepath = self.save_to
 
         with open(filepath, 'wb') as f:
             dill.dump(self, f)
@@ -183,8 +196,6 @@ class Engine:
             winner = Color.WHITE
         else:
             winner = None
-
-        print(white_moves, black_moves, winner)
 
         return winner
 
@@ -314,6 +325,10 @@ class Engine:
                 result.is_ok = False
 
         result.promotion = self.is_promotion()
+
+        if self.autosave:
+            self.save()
+
         return result
 
     def is_promotion(self):
