@@ -1,8 +1,6 @@
 from django.contrib import admin
-from .models import ActiveGame, GameMode, FinishedGame, History
+from .models import ActiveGame, FinishedGame
 
 
 admin.site.register(ActiveGame)
-admin.site.register(GameMode)
 admin.site.register(FinishedGame)
-admin.site.register(History)
